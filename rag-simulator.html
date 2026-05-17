@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Simulator (Dark Theme)</title>
+    <style>
+        :root {
+            --bg-base: #131314;
+            --bg-surface: #1e1f22;
+            --bg-surface-hover: #2a2b2f;
+            --border-color: #333538;
+            --text-primary: #e3e3e3;
+            --text-secondary: #c4c7c5;
+            --accent-blue: #a8c7fa;
+            --accent-blue-hover: #b4d0ff;
+            --bg-user-msg: #303134;
+            --font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar (Sources) --- */
+        .sidebar {
+            width: 320px;
+            background-color: var(--bg-surface);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .add-source-btn {
+            background-color: transparent;
+            border: 1px dashed var(--border-color);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 24px;
+            transition: background-color 0.2s;
+        }
+
+        .add-source-btn:hover {
+            background-color: var(--bg-surface-hover);
+        }
+
+        .source-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .source-card {
+            background-color: var(--bg-base);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .source-card:hover {
+            border-color: #5f6368;
+            background-color: var(--bg-surface-hover);
+        }
+
+        .source-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .source-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* --- Main Content (Chat) --- */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-header {
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding-bottom: 120px; /* Space for input */
+        }
+
+        .message {
+            max-width: 80%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .message.user {
+            align-self: flex-end;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+        }
+
+        .message-bubble {
+            padding: 16px 20px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .message.user .message-bubble {
+            background-color: var(--bg-user-msg);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai .message-bubble {
+            background-color: transparent;
+            padding: 0; /* AI messages look like plain text in NotebookLM */
+        }
+
+        /* --- Citations --- */
+        .citation {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background-color: #2a3b5c;
+            color: var(--accent-blue);
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 4px;
+            cursor: pointer;
+            vertical-align: super;
+            text-decoration: none;
+        }
+
+        .citation:hover {
+            background-color: #3b5384;
+        }
+
+        .source-chips {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .source-chip {
+            background-color: #2a3b5c;
+            color: var(--accent-blue);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        /* --- Input Area --- */
+        .input-wrapper {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 800px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .input-field {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1rem;
+            padding: 12px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .input-field::placeholder {
+            color: #707376;
+        }
+
+        .send-btn {
+            background-color: var(--text-primary);
+            color: var(--bg-base);
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+
+        .send-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar: Sources -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Sources
+            <span style="font-size: 0.8rem; background: var(--border-color); padding: 2px 8px; border-radius: 10px;">3</span>
+        </div>
+        
+        <button class="add-source-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Source
+        </button>
+
+        <div class="source-list">
+            <!-- Mock Source 1 -->
+            <div class="source-card">
+                <div class="source-title">
+                    📄 Cyclical_Agent_Architecture.md
+                </div>
+                <div class="source-meta">3,420 words • Imported Today</div>
+            </div>
+            <!-- Mock Source 2 -->
+            <div class="source-card">
+                <div class="source-title">
+                    📊 AWS_EC2_Deployment_Logs.txt
+                </div>
+                <div class="source-meta">12 KB • Imported Yesterday</div>
+            </div>
+            <!-- Mock Source 3 -->
+            <div class="source-card">
+                <div class="source-title">
+                    📁 PowerPlatform_Migration_CaseStudy.pdf
+                </div>
+                <div class="source-meta">15 pages • Imported 2 days ago</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content: Chat -->
+    <div class="main-content">
+        <div class="chat-header">
+            <h1>RAG Simulator (Notebook Mode)</h1>
+        </div>
+
+        <div class="chat-container" id="chat-container">
+            <!-- Initial AI Message -->
+            <div class="message ai">
+                <div class="message-bubble">
+                    I have analyzed the 3 sources provided. These documents cover architectural strategies for agentic workflows, server deployment logs, and enterprise platform migrations. 
+                    <br><br>
+                    What would you like to know about your data? I can synthesize information, draft technical summaries, or extract specific data points.
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-wrapper">
+            <input type="text" class="input-field" id="user-input" placeholder="Ask questions about your sources..." autocomplete="off">
+            <button class="send-btn" id="send-btn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const inputField = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatContainer = document.getElementById('chat-container');
+
+        function addMessage(text, isUser = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+            
+            let bubbleHtml = `<div class="message-bubble">${text}</div>`;
+            
+            // If it's an AI message, mock some source chips at the bottom
+            if (!isUser) {
+                bubbleHtml += `
+                <div class="source-chips">
+                    <div class="source-chip">1. Cyclical_Agent_Architecture</div>
+                    <div class="source-chip">2. AWS_EC2_Logs</div>
+                </div>`;
+            }
+            
+            msgDiv.innerHTML = bubbleHtml;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function handleSend() {
+            const text = inputField.value.trim();
+            if (!text) return;
+
+            // Add user message
+            addMessage(text, true);
+            inputField.value = '';
+
+            // Simulate RAG generation delay
+            setTimeout(() => {
+                const aiResponse = `Based on the provided architecture documents<span class="citation">1</span>, synthesizing this data requires orchestrating a master subprocess script. The logs indicate successful deployment of the monitoring nodes<span class="citation">2</span>. Furthermore, applying this logic to enterprise scale requires aligning with overarching technical strategy and roadmap constraints.`;
+                addMessage(aiResponse, false);
+            }, 1000);
+        }
+
+        sendBtn.addEventListener('click', handleSend);
+        inputField.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSend();
+            }
+        });
+    </script>
+</body>
+</html>
